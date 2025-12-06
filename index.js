@@ -78,12 +78,13 @@ async function run() {
     await client.connect();
     console.log(" Connected to MongoDB");
 
-    const db = client.db("zap-shift");
+    const db = client.db("garments-management");
     const userCollection = db.collection("users"); 
     const ParcelsCollection = db.collection("parcels"); 
     const paymentHistory=db.collection("payment")
     const riderCollection=db.collection("rider")
     const trakingCollection=db.collection("trakingId")
+    const AllproductsCollection=db.collection("allproducts")
 
     
 // midleware chek the user want this data he/she is a admin 
@@ -99,17 +100,17 @@ const veryfyAdmin=async(req,res,next)=>{
   next()
 }
 // rider secure data use valid token then access
-const veryfyRider=async(req,res,next)=>{
-  const email=req.decoded_email
-  const query={email}
-  const user=await userCollection.findOne(query)
-  if (!user|| user.role!="rider") {
-    return res.status(403).send({message:"forbiden access"});
+// const veryfyRider=async(req,res,next)=>{
+//   const email=req.decoded_email
+//   const query={email}
+//   const user=await userCollection.findOne(query)
+//   if (!user|| user.role!="rider") {
+//     return res.status(403).send({message:"forbiden access"});
 
     
-  }
-  next()
-}
+//   }
+//   next()
+// }
 const TrakingLog=async(trackingId,status)=>{
   const log={
     trackingId,
@@ -124,7 +125,7 @@ const TrakingLog=async(trackingId,status)=>{
     
     // Default route
     app.get("/", (req, res) => {
-      res.send("zap-shift API running ");
+      res.send("garments server API running ");
     });
     // user related api
 // get all user my who is register my website 
@@ -157,7 +158,7 @@ const TrakingLog=async(trackingId,status)=>{
     // when user register zapshift page and save his database do simple user
     app.post("/user",async(req,res)=>{
       const users=req.body
-      users.role="user";
+      users.role="pending";
       users.createdAt=new Date()
       const email=users.email
       const userExist=await userCollection.findOne({email})
@@ -181,6 +182,14 @@ const TrakingLog=async(trackingId,status)=>{
       const result=await userCollection.updateOne(query,updateDocs)
       res.send(result)
     })
+    // products related api
+    app.get("/products",async(req,res)=>{
+      const result=await AllproductsCollection.find({}).toArray()
+      res.send(result)
+
+
+    })
+
 
     // rider collection relatead api (only admnin can see)
 
