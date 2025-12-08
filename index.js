@@ -21,7 +21,9 @@ const port = process.env.PORT || 3000;
 
 // Middleware   dom6fKoSFWGpSCPA
 app.use(cors());
-app.use(express.json());
+
+app.use(express.json({ limit: "50mb" }));     
+app.use(express.urlencoded({ limit: "50mb", extended: true }));  
 
 
 
@@ -156,7 +158,7 @@ const TrakingLog=async(trackingId,status)=>{
       const user=await userCollection.findOne(query)
       res.send({role:user?.role || "user"})
     })
-    // when user register zapshift page and save his database do simple user
+    // when user register garments traking  system page and save his database do simple user
     app.post("/user",async(req,res)=>{
       const users=req.body
       const { role } = users;
@@ -193,6 +195,81 @@ const TrakingLog=async(trackingId,status)=>{
 
 
     })
+    // update products information from admin
+    app.put("/products/:id", async (req, res) => {
+  const id = req.params.id;
+  const body = req.body;
+
+  const filter = { _id: new ObjectId(id) };
+  
+  const updatedDoc = {
+    $set: {
+      product_name: body.product_name,
+      product_category: body.product_category,
+      product_description: body.product_description,
+      price_usd: body.price_usd,
+      available_quantity: body.available_quantity,
+      minimum_order: body.minimum_order,
+      demo_video: body.demo_video,
+    }
+  };
+
+  const result = await AllproductsCollection.updateOne(filter, updatedDoc);
+  res.send(result);
+});
+
+    // when manager created product post mongo db  
+    app.post("/products", async (req, res) => {
+  try {
+    const product = req.body;
+    const result = await AllproductsCollection.insertOne(product);
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Failed to add product" });
+  }
+});
+// get manager created product data by email
+app.get("/products/by-manager/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    const result = await AllproductsCollection.find({ createdBy: email }).toArray();
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Failed to load manager products" });
+  }
+});
+// products delete by manager 
+app.delete("/products/:id", async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+
+  const result = await AllproductsCollection.deleteOne(query);
+  res.send(result);
+});
+// if manager want he can update his products information
+app.put("/products/:id", async (req, res) => {
+  const id = req.params.id;
+  const body = req.body;
+
+  const filter = { _id: new ObjectId(id) };
+  
+  const updatedDoc = {
+    $set: {
+      product_name: body.product_name,
+      product_category: body.product_category,
+      product_description: body.product_description,
+      price_usd: body.price_usd,
+      available_quantity: body.available_quantity,
+      minimum_order: body.minimum_order,
+      demo_video: body.demo_video,
+    }
+  };
+
+  const result = await AllproductsCollection.updateOne(filter, updatedDoc);
+  res.send(result);
+});
+
+
     // details products
     app.get("/products/:id", async (req, res) => {
   const id = req.params.id;
@@ -331,6 +408,118 @@ app.get("/orders", async (req, res) => {
     const result = await orderCollection.findOne({_id: new ObjectId(id)});
     res.send(result);
 });
+// get manager product order information
+// server.js
+app.get("/orders/by-manager/:email", async (req, res) => {
+  try {
+    const managerEmail = req.params.email;
+    const orders = await orderCollection.find({ manageremail: managerEmail }).toArray();
+    res.send(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to fetch orders" });
+  }
+});
+// order by buyer email
+app.get("/orders/by-buyer/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    const result = await orderCollection.find({ customerEmail: email }).toArray();
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch buyer orders" });
+  }
+});
+// if buyer want to cancel his order 
+app.delete("/orders/by-buyer/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const order = await orderCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    // If order already processed, cancel not allowed
+    if (order.orderStatus !== "pending") {
+      return res.status(400).send({ message: "Only pending orders can be cancelled" });
+    }
+
+    const result = await orderCollection.deleteOne({ _id: new ObjectId(id) });
+    res.send(result);
+
+  } catch (error) {
+    res.status(500).send({ message: "Failed to delete order" });
+  }
+});
+
+// Track order by trackingId (publicly accessible)
+app.get("/orders/track/:trackingId", async (req, res) => {
+  try {
+    const trackingId = req.params.trackingId;
+    const order = await orderCollection.findOne({ trackingId });
+    if (!order) return res.status(404).send({ message: "Order not found" });
+    res.send(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to fetch order" });
+  }
+});
+
+
+
+// Accept/Reject order by manager
+app.patch("/orders/:id/status", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status } = req.body; // accepted / rejected
+    const query = { _id: new ObjectId(id) };
+
+    // 1️⃣ Update order status
+    const updateDoc = { $set: { orderStatus: status } };
+    const result = await orderCollection.updateOne(query, updateDoc);
+
+    if (result.modifiedCount > 0) {
+      // 2️⃣ Tracking log e step add kora
+      const order = await orderCollection.findOne({ _id: new ObjectId(id) });
+      if (order?.trackingId) {
+        await TrakingLog(order.trackingId, `Order ${status}`);
+      }
+
+      res.send({ message: `Order ${status} successfully and tracking log updated` });
+    } else {
+      res.status(400).send({ message: "Failed to update order status" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
+
+// Update tracking step (Cutting, Sewing, etc.)
+app.patch("/orders/:id/tracking", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { step } = req.body; // e.g., "Cutting Completed"
+    const query = { _id: new ObjectId(id) };
+
+    const updateDoc = { $push: { trackingLog: { step, date: new Date() } } };
+    const result = await orderCollection.updateOne(query, updateDoc);
+
+    // global tracking log
+    const order = await orderCollection.findOne({ _id: new ObjectId(id) });
+    if (order?.trackingId) {
+      await TrakingLog(order.trackingId, step);
+    }
+
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to update tracking" });
+  }
+});
+
 
  
 // order status
@@ -340,7 +529,7 @@ app.get("/orders", async (req, res) => {
 // manager update order status
 
   // aggrigate papeline (advance topic)
-  app.get("/parcels/delivery-status/status",async(req,res)=>{
+  app.get("/orders/delivery-status/status",async(req,res)=>{
     const papeline=[
       {
         $group:{
@@ -349,7 +538,7 @@ app.get("/orders", async (req, res) => {
         }
       }
     ]
-    const result=await ParcelsCollection.aggregate(papeline).toArray();
+    const result=await orderCollection.aggregate(papeline).toArray();
     res.send(result)
   })
   app.get("/parcels", async (req, res) => {
@@ -377,111 +566,6 @@ app.get("/orders", async (req, res) => {
 });
 
  
-// get parcel by id
-  // app.get("/order/:id",async (req, res)=>{
-
-  //   try {
-  //    const id = req.params.id;
-  //    const result = await orderCollection.findOne({
-  //      _id: new ObjectId(id),
-  //    });
-  //    res.send(result);
-  //  } catch (err) {
-  //    console.error(err);
-  //    res.status(500).send({ message: "Failed to delete issue" });
-  //  }
-
-  // })
-  // app.get("/parcels/:id",async (req, res)=>{
-
-  //   try {
-  //    const id = req.params.id;
-  //    const result = await ParcelsCollection.findOne({
-  //      _id: new ObjectId(id),
-  //    });
-  //    res.send(result);
-  //  } catch (err) {
-  //    console.error(err);
-  //    res.status(500).send({ message: "Failed to delete issue" });
-  //  }
-
-  // })
-  // parcel patch when admin  assign the product and send request to rider  confirm
- app.patch("/orders/:id", async (req, res) => {
-  const { riderId, riderName, riderEmail, trackingId, status } = req.body;
-  const id = req.params.id;
-  const query = { _id: new ObjectId(id) };
-
-  const updateDocs = {
-    $set: {
-      orderStatus: status || "accepted",  // accepted, rejected
-      riderId,
-      riderName,
-      riderEmail
-    }
-  };
-
-  const result = await orderCollection.updateOne(query, updateDocs);
-
-  if (riderId && status === "accepted") {
-    // rider status update
-    await riderCollection.updateOne(
-      { _id: new ObjectId(riderId) },
-      { $set: { workStatus: "in_delivery" } }
-    );
-  }
-
-  if (trackingId) TrakingLog(trackingId, "rider_assign");
-
-  res.send(result);
-});
-app.patch("/orders/:id/delivered", async (req, res) => {
-  const id = req.params.id;
-  const { riderId, trackingId } = req.body;
-
-  const result = await orderCollection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: { orderStatus: "delivered" } }
-  );
-
-  // Rider status back to available
-  if (riderId) {
-    await riderCollection.updateOne(
-      { _id: new ObjectId(riderId) },
-      { $set: { workStatus: "available" } }
-    );
-  }
-
-  if (trackingId) TrakingLog(trackingId, "delivered");
-
-  res.send(result);
-});
-
-  // app.patch("/parcels/:id",async(req,res)=>{
-  //   const {riderId, riderName,riderEmail,trackingId}=req.body
-  //   const id=req.params.id
-  //   const query={_id:new ObjectId(id)}
-  //   const updateDocs={
-  //     $set:{
-  //       deliveryStatus:"rider_assign".trim(),
-  //       riderId:riderId,
-  //       riderName:riderName,
-  //       riderEmail:riderEmail
-  //     }
-  //   }
-  //   const result=await ParcelsCollection.updateOne(query,updateDocs)
-  //   // and update the same api hit rider status
-  //   const riderQuery={_id:new ObjectId(riderId)}
-  //   const riderUpdatedDocs={
-  //     $set:{
-  //       workStatus:"in_delivery"
-
-  //     }
-  //   }
-  //   const riderResult=await riderCollection.updateOne(riderQuery,riderUpdatedDocs)
-  //   TrakingLog(trackingId,'rider_assign')
-  //   res.send(riderResult)
-  // })
 // again patch parcel when the rider confirm the order (accepeted/reject) 
 app.patch("/parcels/:id/status",async (req,res)=>{
   const {deliveryStatus,riderId,trackingId}=req.body
@@ -558,43 +642,6 @@ app.post('/create-checkout-session', async (req, res) => {
 res.send({ url: session.url });
 
 });
-// //  payment chekout sesssion
-// app.post('/create-checkout-session', async (req, res) => {
-
-
-//   const paymentInfo=req.body;
-//   // console.log(paymentInfo);
-  
-//   const amount=parseInt(paymentInfo.totalPrice)*100
-
-//   const session = await stripe.checkout.sessions.create({
-//     line_items: [
-//       {
-       
-//        price_data:{
-//         unit_amount:amount,
-//         currency:"usd",
-//         product_data:{
-//           name:`plese pay for ${paymentInfo.productName}`
-//         }
-//        },
-//         quantity: 1,
-//       },
-//     ],
-//     metadata:{
-//       orderId:paymentInfo.orderId,
-//        productName:paymentInfo.productName
-//     },
-//     buyer_email:paymentInfo.buyerEmail,
-//     mode: 'payment',
-    
-//     success_url: `${process.env.SITE_URL}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-//     cancel_url:`${process.env.SITE_URL}/dashboard/payment-cancel?session_id={CHECKOUT_SESSION_ID}`,
-
-//   });
-
-//   res.send({ url: session.url });
-// });
 
 
 // payment veryfy and created session id 
@@ -636,78 +683,7 @@ app.post('/payment/verify', async (req, res) => {
     return res.send({verified:false, message:"Payment not paid"});
 });
 
-// app.post('/payment/verify', async (req, res) => {
-//     const { sessionId } = req.body;
 
-//     if (!sessionId) {
-//         return res.status(400).send({ verified: false, message: "Session ID missing." });
-//     }
-
-//     try {
-//         const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-//         const transactionId = session.payment_intent; 
-       
-//         const exists = await paymentHistory.findOne({ transactionId });
-
-//         if (exists) {
-//             return res.send({
-//                 verified: true,
-//                 message: "Payment already recorded",
-//                 trackingId: exists.trackingId
-//             });
-//         }
-
-//         if (session.payment_status === 'paid' && session.metadata?.parcelId) {
-//             const parcelId = session.metadata.parcelId;
-           
-
-//             const currentParcel = await ParcelsCollection.findOne({ _id: new ObjectId(parcelId) });
-
-//             if (!currentParcel) {
-//                 return res.status(404).send({ verified: false, message: "Parcel not found." });
-//             }
-
-//             const trackingId = currentParcel.trackingId;
-//              TrakingLog(trackingId,'parcel_paid')
-
-//             // parcel update
-//             await ParcelsCollection.updateOne(
-//                 { _id: new ObjectId(parcelId) },
-//                 { $set: { 
-//                   paymentStatus: 'paid',
-//                   deliveryStatus:"parcel_paid",
-//                    transactionId 
-//                   } }
-//             );
-
-//             //  Save payment history once
-//             await paymentHistory.insertOne({
-//                 amount: session.amount_total / 100,
-//                 currency: session.currency,
-//                 customerEmail: session.customer_details?.email,
-//                 parcelId,
-//                 parcelName: session.metadata.parcelName,
-//                 trackingId,
-//                 transactionId,
-//                 paymentStatus: 'paid',
-//                 paidAt: new Date(),
-//             });
-
-//             return res.send({
-//                 verified: true,
-//                 message: "Payment verified & saved.",
-//                 trackingId
-//             });
-//         }
-
-//         return res.send({ verified: false, message: "Payment not paid." });
-
-//     } catch (error) {
-//         console.error("Verify Error:", error);
-//         res.status(500).send({ verified: false, message: error.message });
-//     }
-// });
 // payment history api
 app.get("/payment",verifyToken, async (req, res) => {
     try {
