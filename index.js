@@ -574,7 +574,6 @@ app.get("/orders/by-manager/:email", async (req, res) => {
 });
 
 
-
     // order by buyer email
     app.get("/orders/by-buyer/:email", async (req, res) => {
       try {
