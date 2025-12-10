@@ -152,10 +152,10 @@ async function run() {
     })
     //user suspend reason load api navber
     app.get("/users/:email", async (req, res) => {
-  const email = req.params.email;
-  const result = await userCollection.findOne({ email });
-  res.send(result);
-});
+      const email = req.params.email;
+      const result = await userCollection.findOne({ email });
+      res.send(result);
+    });
 
 
     // get user base his role by this website 
@@ -171,7 +171,7 @@ async function run() {
       const { role } = users;
 
       users.status = "pending";
-     users.suspendReason = "";
+      users.suspendReason = "";
       users.role = role
       users.createdAt = new Date()
       const email = users.email
@@ -184,36 +184,45 @@ async function run() {
       res.send(userData)
     })
     // patch /updated user role user to admin and admin to simple user
+
+    //    
     app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
-  const id = req.params.id;
-  const { status, suspendReason,role } = req.body;
+      const id = req.params.id;
+      const { status, suspendReason } = req.body;
 
-  const query = { _id: new ObjectId(id) };
-  const updateDoc = {
-    $set: {
-      status,
-      suspendReason: suspendReason || ""  // if suspended, save reason
-    }
-  };
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status,
+          suspendReason: suspendReason || ""
+        }
+      };
 
-  const result = await userCollection.updateOne(query, updateDoc);
-  res.send(result);
-});
-// patch user r
-// UPDATE USER ROLE ONLY
-app.patch("/user-role/:id",  async (req, res) => {
-  const id = req.params.id;
-  const { role } = req.body;
+      const result = await userCollection.updateOne(query, updateDoc);
 
-  const query = { _id: new ObjectId(id) };
-  const updateDoc = {
-    $set: { role }
-  };
+      // CUSTOM RESPONSE: React খুব easily বুঝবে
+      res.send({
+        modified: result.modifiedCount > 0,
+        matched: result.matchedCount
+      });
+    });
 
-  const result = await userCollection.updateOne(query, updateDoc);
-  res.send(result);
-});
 
+    //     app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
+    //   const id = req.params.id;
+    //   const { status, suspendReason,role } = req.body;
+
+    //   const query = { _id: new ObjectId(id) };
+    //   const updateDoc = {
+    //     $set: {
+    //       status,
+    //       suspendReason: suspendReason || ""  
+    //     }
+    //   };
+
+    //   const result = await userCollection.updateOne(query, updateDoc);
+    //   res.send(result);
+    // });
 
 
     // app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
@@ -254,23 +263,55 @@ app.patch("/user-role/:id",  async (req, res) => {
           available_quantity: body.available_quantity,
           minimum_order: body.minimum_order,
           demo_video: body.demo_video,
+          show_on_home:body.show_on_home || "no",
+          payment_method:body.payment_method
         }
       };
 
       const result = await AllproductsCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+    // show on home page permissin admin
+    app.patch("/products/:id/show-on-home", async (req, res) => {
+      const id = req.params.id;
+      const { value } = req.body; // "permit" or "no"
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = { $set: { show_on_home: value } };
+        const result = await AllproductsCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update show_on_home status" });
+      }
+    });
+
 
     // when manager created product post mongo db  
     app.post("/products", async (req, res) => {
-      try {
-        const product = req.body;
-        const result = await AllproductsCollection.insertOne(product);
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to add product" });
-      }
-    });
+  try {
+    const product = {
+      ...req.body,     // frontend already sends show_on_home
+      createdAt: new Date(),
+    };
+
+    const result = await AllproductsCollection.insertOne(product);
+    res.send(result);
+
+  } catch (error) {
+    res.status(500).send({ message: "Failed to add product" });
+  }
+});
+
+
+    // app.post("/products", async (req, res) => {
+    //   try {
+    //     const product = req.body;
+    //     const result = await AllproductsCollection.insertOne(product);
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).send({ message: "Failed to add product" });
+    //   }
+    // });
     // get manager created product data by email
     app.get("/products/by-manager/:email", async (req, res) => {
       try {
@@ -332,66 +373,66 @@ app.patch("/user-role/:id",  async (req, res) => {
 
     // rider register/form filap zap shoft would like took part rider in zapshift
 
-    app.post("/rider", async (req, res) => {
-      const rider = req.body
-      rider.status = "pending";
-      rider.createdAt = new Date()
+    // app.post("/rider", async (req, res) => {
+    //   const rider = req.body
+    //   rider.status = "pending";
+    //   rider.createdAt = new Date()
 
-      const userData = await riderCollection.insertOne(rider)
-      res.send(userData)
-    })
-    // register people  get api those people
-    //  want feile like rider and the alredy registed and subn=mit rider frome
-    app.get("/rider", async (req, res) => {
-      const { status, district, workStatus } = req.query
-      const query = {};
+    //   const userData = await riderCollection.insertOne(rider)
+    //   res.send(userData)
+    // })
+    // // register people  get api those people
+    // //  want feile like rider and the alredy registed and subn=mit rider frome
+    // app.get("/rider", async (req, res) => {
+    //   const { status, district, workStatus } = req.query
+    //   const query = {};
 
-      if (status) {
-        query.status = status;
-      }
-      if (district) {
-        query.District = district
+    //   if (status) {
+    //     query.status = status;
+    //   }
+    //   if (district) {
+    //     query.District = district
 
-      }
-      if (workStatus) {
-        query.workStatus = workStatus
+    //   }
+    //   if (workStatus) {
+    //     query.workStatus = workStatus
 
-      }
+    //   }
 
-      const result = await riderCollection.find(query).toArray();
-      res.send(result);
-    });
-    //  rider status updaated 
-    app.patch("/rider/:id", verifyToken, veryfyAdmin, async (req, res) => {
-      try {
-        const status = req.body.status
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) }
+    //   const result = await riderCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+    // //  rider status updaated 
+    // app.patch("/rider/:id", verifyToken, veryfyAdmin, async (req, res) => {
+    //   try {
+    //     const status = req.body.status
+    //     const id = req.params.id;
+    //     const query = { _id: new ObjectId(id) }
 
-        const updateDocs = {
-          $set: {
-            status: status,
-            workStatus: "available"
-          }
-        }
-        const result = await riderCollection.updateOne(query, updateDocs)
-        if (status === "approved") {
-          const email = req.body.email
-          const userQuary = { email }
-          const updateUser = {
-            $set: {
-              role: "rider"
-            }
-          }
-          const userResult = await userCollection.updateOne(userQuary, updateUser)
+    //     const updateDocs = {
+    //       $set: {
+    //         status: status,
+    //         workStatus: "available"
+    //       }
+    //     }
+    //     const result = await riderCollection.updateOne(query, updateDocs)
+    //     if (status === "approved") {
+    //       const email = req.body.email
+    //       const userQuary = { email }
+    //       const updateUser = {
+    //         $set: {
+    //           role: "rider"
+    //         }
+    //       }
+    //       const userResult = await userCollection.updateOne(userQuary, updateUser)
 
-        }
-        res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to update  rider" });
-      }
-    });
+    //     }
+    //     res.send(result);
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.status(500).send({ message: "Failed to update  rider" });
+    //   }
+    // });
 
     //  trakings id realated api 
     app.get("/tracking/:trackingId", async (req, res) => {
@@ -424,19 +465,19 @@ app.patch("/user-role/:id",  async (req, res) => {
       res.send(result);
     });
     // buyer home dashboard show products status
- app.get("/orders/:id",async (req, res)=>{
+    app.get("/orders/:id", async (req, res) => {
 
-    try {
-     const id = req.params.id;
-     const result = await orderCollection.findOne({
-       _id: new ObjectId(id),
-     });
-     res.send(result);
-   } catch (err) {
-     console.error(err);
-     res.status(500).send({ message: "Failed to delete issue" });
-   }
- })
+      try {
+        const id = req.params.id;
+        const result = await orderCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to delete issue" });
+      }
+    })
     // order get 
     // orders get with optional status filter
     app.get("/orders", async (req, res) => {
@@ -465,16 +506,23 @@ app.patch("/user-role/:id",  async (req, res) => {
     });
     // get manager product order information
     // server.js
-    app.get("/orders/by-manager/:email", async (req, res) => {
-      try {
-        const managerEmail = req.params.email;
-        const orders = await orderCollection.find({ manageremail: managerEmail }).toArray();
-        res.send(orders);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to fetch orders" });
-      }
-    });
+   // get manager product order information (excluding delivered)
+app.get("/orders/by-manager/:email", async (req, res) => {
+  try {
+    const managerEmail = req.params.email;
+
+    const orders = await orderCollection.find({
+      manageremail: managerEmail,
+      orderStatus: { $ne: "Delivered" }  
+    }).toArray();
+
+    res.send(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to fetch orders" });
+  }
+});
+
     // get all order admin can see all order 
 
     // app.get("/orders/admin", async (req, res) => {
@@ -494,7 +542,7 @@ app.patch("/user-role/:id",  async (req, res) => {
         const orders = await orderCollection
           .find({
             manageremail: managerEmail,
-            "trackingLog.step": "Delivered"   // <-- এখানে check করা হচ্ছে
+            "trackingLog.step": "Delivered"  
           })
           .toArray();
 
@@ -504,6 +552,27 @@ app.patch("/user-role/:id",  async (req, res) => {
         res.status(500).send({ message: "Failed to fetch completed orders" });
       }
     });
+    // get only pending order
+   app.get("/orders/pending/by-manager/:email", async (req, res) => {
+  try {
+    const managerEmail = req.params.email;
+
+    const orders = await orderCollection
+      .find({
+        manageremail: managerEmail, // manager এর email
+        orderStatus: "pending",     // শুধুমাত্র pending orders
+        // Optional: যদি শুধুমাত্র buyer এর product filter করতে চাই
+        productName: { $exists: true, $ne: "" }
+      })
+      .toArray();
+
+    res.send(orders);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to fetch pending orders" });
+  }
+});
+
 
 
     // order by buyer email
@@ -583,63 +652,61 @@ app.patch("/user-role/:id",  async (req, res) => {
     });
 
 
-    // Update tracking step (Cutting, Sewing, etc.)
-    app.patch("/orders/:id/tracking", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const { step } = req.body;
+app.patch("/orders/:id/tracking", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { step, note, location, datetime } = req.body; // extra fields optional
 
-        const order = await orderCollection.findOne({ _id: new ObjectId(id) });
-        if (!order) return res.status(404).send({ message: "Order not found" });
+    const order = await orderCollection.findOne({ _id: new ObjectId(id) });
+    if (!order) return res.status(404).send({ message: "Order not found" });
 
-        const alreadyExists = order.trackingLog?.some(t => t.step === step);
-        if (alreadyExists) return res.status(400).send({ message: "Step already added" });
+    const alreadyExists = order.trackingLog?.some(t => t.step === step);
+    if (alreadyExists) return res.status(400).send({ message: "Step already added" });
 
-        await orderCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $push: { trackingLog: { step, date: new Date() } } }
-        );
+    const newTracking = {
+      step,
+      note: note || "",
+      location: location || "",
+      date: datetime ? new Date(datetime) : new Date(),
+    };
 
-        // Update global tracking log if exists
-        if (order.trackingId) await TrakingLog(order.trackingId, step);
+    const updateDoc = { $push: { trackingLog: newTracking } };
 
-        const updatedOrder = await orderCollection.findOne({ _id: new ObjectId(id) });
-        res.send(updatedOrder);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to update tracking" });
-      }
-    });
+    // If Delivered, also update orderStatus
+    if (step === "Delivered") {
+      updateDoc.$set = { orderStatus: "Delivered" };
+    }
 
-    // app.patch("/orders/:id/tracking", async (req, res) => {
-    //   try {
-    //     const id = req.params.id;
-    //     const { step } = req.body; // e.g., "Cutting Completed"
-    //     const query = { _id: new ObjectId(id) };
+    await orderCollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
 
-    //     const updateDoc = { $push: { trackingLog: { step, date: new Date() } } };
-    //     const result = await orderCollection.updateOne(query, updateDoc);
+    // Global tracking log
+    if (order.trackingId) await TrakingLog(order.trackingId, step);
 
-    //     // global tracking log
-    //     const order = await orderCollection.findOne({ _id: new ObjectId(id) });
-    //     if (order?.trackingId) {
-    //       await TrakingLog(order.trackingId, step);
-    //     }
+    const updatedOrder = await orderCollection.findOne({ _id: new ObjectId(id) });
+    res.send(updatedOrder);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to update tracking" });
+  }
+});
+// Get approved orders for manager
+app.get("/orders/approved/by-manager/:email", async (req, res) => {
+  try {
+    const managerEmail = req.params.email;
 
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to update tracking" });
-    //   }
-    // });
+    const orders = await orderCollection.find({
+      manageremail: managerEmail,
+      orderStatus: "accepted"
+    }).sort({ createdAt: -1 }).toArray();
 
+    res.send(orders);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to fetch approved orders" });
+  }
+});
 
-
-    // order status
-    // get all pending orders for manager
-
-    // manage order acceped or reject
-    // manager update order status
+   
 
     // aggrigate papeline (advance topic)
     // get admin   dashboard all products status
@@ -655,87 +722,75 @@ app.patch("/user-role/:id",  async (req, res) => {
       const result = await orderCollection.aggregate(papeline).toArray();
       res.send(result)
     })
-    // // manager aggregate pipeline
-    // app.get("/manager/delivery-per-day/:id", async (req, res) => {
-    //   const papeline = [
-    //     {
-    //       $group: {
-    //         _id: "$orderStatus",
-    //         count: { $sum: 1 }
+   
+
+
+
+    // app.get("/parcels", async (req, res) => {
+    //   try {
+    //     const query = {};
+    //     const { email, deliveryStatus, riderEmail } = req.query;
+
+    //     if (email) query.EmailAddress = email; // sender email
+    //     if (riderEmail) query.riderEmail = riderEmail; // rider only assigned
+    //     if (deliveryStatus) {
+    //       if (deliveryStatus !== "parcel_deliverd") {
+    //         query.deliveryStatus = { $nin: ["parcel_deliverd"] };
+    //       } else {
+    //         query.deliveryStatus = deliveryStatus;
     //       }
     //     }
-    //   ]
-    //   const result = await orderCollection.aggregate(papeline).toArray();
+
+    //     const options = { sort: { createdAt: -1 } };
+    //     const result = await ParcelsCollection.find(query, options).toArray();
+    //     res.send(result);
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.status(500).send({ message: "Failed to fetch parcels" });
+    //   }
+    // });
+
+
+    // // again patch parcel when the rider confirm the order (accepeted/reject) 
+    // app.patch("/parcels/:id/status", async (req, res) => {
+    //   const { deliveryStatus, riderId, trackingId } = req.body
+    //   const id = req.params.id
+    //   const query = { _id: new ObjectId(id) }
+    //   const UpdatedDocs = {
+    //     $set: {
+    //       deliveryStatus: deliveryStatus
+    //     }
+    //   }
+    //   if (deliveryStatus === 'parcel_deliverd') {
+    //     // and update the same api hit rider status
+    //     const riderQuery = { _id: new ObjectId(riderId) }
+    //     const riderUpdatedDocs = {
+    //       $set: {
+    //         workStatus: "available"
+
+    //       }
+    //     }
+    //     const riderResult = await riderCollection.updateOne(riderQuery, riderUpdatedDocs)
+    //     res.send(riderResult)
+
+    //   }
+    //   const result = await ParcelsCollection.updateOne(query, UpdatedDocs)
+    //   TrakingLog(trackingId, deliveryStatus)
     //   res.send(result)
     // })
-
-
-
-    app.get("/parcels", async (req, res) => {
-      try {
-        const query = {};
-        const { email, deliveryStatus, riderEmail } = req.query;
-
-        if (email) query.EmailAddress = email; // sender email
-        if (riderEmail) query.riderEmail = riderEmail; // rider only assigned
-        if (deliveryStatus) {
-          if (deliveryStatus !== "parcel_deliverd") {
-            query.deliveryStatus = { $nin: ["parcel_deliverd"] };
-          } else {
-            query.deliveryStatus = deliveryStatus;
-          }
-        }
-
-        const options = { sort: { createdAt: -1 } };
-        const result = await ParcelsCollection.find(query, options).toArray();
-        res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to fetch parcels" });
-      }
-    });
-
-
-    // again patch parcel when the rider confirm the order (accepeted/reject) 
-    app.patch("/parcels/:id/status", async (req, res) => {
-      const { deliveryStatus, riderId, trackingId } = req.body
-      const id = req.params.id
-      const query = { _id: new ObjectId(id) }
-      const UpdatedDocs = {
-        $set: {
-          deliveryStatus: deliveryStatus
-        }
-      }
-      if (deliveryStatus === 'parcel_deliverd') {
-        // and update the same api hit rider status
-        const riderQuery = { _id: new ObjectId(riderId) }
-        const riderUpdatedDocs = {
-          $set: {
-            workStatus: "available"
-
-          }
-        }
-        const riderResult = await riderCollection.updateOne(riderQuery, riderUpdatedDocs)
-        res.send(riderResult)
-
-      }
-      const result = await ParcelsCollection.updateOne(query, UpdatedDocs)
-      TrakingLog(trackingId, deliveryStatus)
-      res.send(result)
-    })
-    // delete  parcel
-    app.delete("/parcels/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const result = await ParcelsCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to delete issue" });
-      }
-    });
+    // // delete  parcel
+    // app.delete("/parcels/:id", async (req, res) => {
+    //   try {
+    //     const id = req.params.id;
+    //     const result = await ParcelsCollection.deleteOne({
+    //       _id: new ObjectId(id),
+    //     });
+    //     res.send(result);
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.status(500).send({ message: "Failed to delete issue" });
+    //   }
+    // });
 
     //  payment chekout sesssion
     app.post('/create-checkout-session', async (req, res) => {
