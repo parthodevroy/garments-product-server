@@ -242,11 +242,24 @@ async function run() {
 
     // products related api
     app.get("/products", async (req, res) => {
-      const result = await AllproductsCollection.find({}).toArray()
-      res.send(result)
+      try {
+        const limit = parseInt(req.query.limit); // ?limit=6
 
+        let cursor = AllproductsCollection.find({});
 
-    })
+        if (limit) {
+          cursor = cursor.limit(limit);
+        }
+
+        const result = await cursor.toArray();
+        res.send(result);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to load products" });
+      }
+    });
+
     // update products information from admin
     app.put("/products/:id", async (req, res) => {
       const id = req.params.id;
@@ -263,8 +276,8 @@ async function run() {
           available_quantity: body.available_quantity,
           minimum_order: body.minimum_order,
           demo_video: body.demo_video,
-          show_on_home:body.show_on_home || "no",
-          payment_method:body.payment_method
+          show_on_home: body.show_on_home || "no",
+          payment_method: body.payment_method
         }
       };
 
@@ -288,19 +301,19 @@ async function run() {
 
     // when manager created product post mongo db  
     app.post("/products", async (req, res) => {
-  try {
-    const product = {
-      ...req.body,     // frontend already sends show_on_home
-      createdAt: new Date(),
-    };
+      try {
+        const product = {
+          ...req.body,     // frontend already sends show_on_home
+          createdAt: new Date(),
+        };
 
-    const result = await AllproductsCollection.insertOne(product);
-    res.send(result);
+        const result = await AllproductsCollection.insertOne(product);
+        res.send(result);
 
-  } catch (error) {
-    res.status(500).send({ message: "Failed to add product" });
-  }
-});
+      } catch (error) {
+        res.status(500).send({ message: "Failed to add product" });
+      }
+    });
 
 
     // app.post("/products", async (req, res) => {
@@ -506,22 +519,22 @@ async function run() {
     });
     // get manager product order information
     // server.js
-   // get manager product order information (excluding delivered)
-app.get("/orders/by-manager/:email", async (req, res) => {
-  try {
-    const managerEmail = req.params.email;
+    // get manager product order information (excluding delivered)
+    app.get("/orders/by-manager/:email", async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
 
-    const orders = await orderCollection.find({
-      manageremail: managerEmail,
-      orderStatus: { $ne: "Delivered" }  
-    }).toArray();
+        const orders = await orderCollection.find({
+          manageremail: managerEmail,
+          orderStatus: { $ne: "Delivered" }
+        }).toArray();
 
-    res.send(orders);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: "Failed to fetch orders" });
-  }
-});
+        res.send(orders);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch orders" });
+      }
+    });
 
     // get all order admin can see all order 
 
@@ -542,7 +555,7 @@ app.get("/orders/by-manager/:email", async (req, res) => {
         const orders = await orderCollection
           .find({
             manageremail: managerEmail,
-            "trackingLog.step": "Delivered"  
+            "trackingLog.step": "Delivered"
           })
           .toArray();
 
@@ -553,25 +566,25 @@ app.get("/orders/by-manager/:email", async (req, res) => {
       }
     });
     // get only pending order
-   app.get("/orders/pending/by-manager/:email", async (req, res) => {
-  try {
-    const managerEmail = req.params.email;
+    app.get("/orders/pending/by-manager/:email", async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
 
-    const orders = await orderCollection
-      .find({
-        manageremail: managerEmail, // manager এর email
-        orderStatus: "pending",     // শুধুমাত্র pending orders
-        // Optional: যদি শুধুমাত্র buyer এর product filter করতে চাই
-        productName: { $exists: true, $ne: "" }
-      })
-      .toArray();
+        const orders = await orderCollection
+          .find({
+            manageremail: managerEmail, // manager এর email
+            orderStatus: "pending",     // শুধুমাত্র pending orders
+            // Optional: যদি শুধুমাত্র buyer এর product filter করতে চাই
+            productName: { $exists: true, $ne: "" }
+          })
+          .toArray();
 
-    res.send(orders);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to fetch pending orders" });
-  }
-});
+        res.send(orders);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch pending orders" });
+      }
+    });
 
 
     // order by buyer email
@@ -651,61 +664,61 @@ app.get("/orders/by-manager/:email", async (req, res) => {
     });
 
 
-app.patch("/orders/:id/tracking", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { step, note, location, datetime } = req.body; // extra fields optional
+    app.patch("/orders/:id/tracking", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { step, note, location, datetime } = req.body; // extra fields optional
 
-    const order = await orderCollection.findOne({ _id: new ObjectId(id) });
-    if (!order) return res.status(404).send({ message: "Order not found" });
+        const order = await orderCollection.findOne({ _id: new ObjectId(id) });
+        if (!order) return res.status(404).send({ message: "Order not found" });
 
-    const alreadyExists = order.trackingLog?.some(t => t.step === step);
-    if (alreadyExists) return res.status(400).send({ message: "Step already added" });
+        const alreadyExists = order.trackingLog?.some(t => t.step === step);
+        if (alreadyExists) return res.status(400).send({ message: "Step already added" });
 
-    const newTracking = {
-      step,
-      note: note || "",
-      location: location || "",
-      date: datetime ? new Date(datetime) : new Date(),
-    };
+        const newTracking = {
+          step,
+          note: note || "",
+          location: location || "",
+          date: datetime ? new Date(datetime) : new Date(),
+        };
 
-    const updateDoc = { $push: { trackingLog: newTracking } };
+        const updateDoc = { $push: { trackingLog: newTracking } };
 
-    // If Delivered, also update orderStatus
-    if (step === "Delivered") {
-      updateDoc.$set = { orderStatus: "Delivered" };
-    }
+        // If Delivered, also update orderStatus
+        if (step === "Delivered") {
+          updateDoc.$set = { orderStatus: "Delivered" };
+        }
 
-    await orderCollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
+        await orderCollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
 
-    // Global tracking log
-    if (order.trackingId) await TrakingLog(order.trackingId, step);
+        // Global tracking log
+        if (order.trackingId) await TrakingLog(order.trackingId, step);
 
-    const updatedOrder = await orderCollection.findOne({ _id: new ObjectId(id) });
-    res.send(updatedOrder);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to update tracking" });
-  }
-});
-// Get approved orders for manager
-app.get("/orders/approved/by-manager/:email", async (req, res) => {
-  try {
-    const managerEmail = req.params.email;
+        const updatedOrder = await orderCollection.findOne({ _id: new ObjectId(id) });
+        res.send(updatedOrder);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to update tracking" });
+      }
+    });
+    // Get approved orders for manager
+    app.get("/orders/approved/by-manager/:email", async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
 
-    const orders = await orderCollection.find({
-      manageremail: managerEmail,
-      orderStatus: "accepted"
-    }).sort({ createdAt: -1 }).toArray();
+        const orders = await orderCollection.find({
+          manageremail: managerEmail,
+          orderStatus: "accepted"
+        }).sort({ createdAt: -1 }).toArray();
 
-    res.send(orders);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to fetch approved orders" });
-  }
-});
+        res.send(orders);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch approved orders" });
+      }
+    });
 
-   
+
 
     // aggrigate papeline (advance topic)
     // get admin   dashboard all products status
@@ -721,7 +734,7 @@ app.get("/orders/approved/by-manager/:email", async (req, res) => {
       const result = await orderCollection.aggregate(papeline).toArray();
       res.send(result)
     })
-   
+
 
 
 
