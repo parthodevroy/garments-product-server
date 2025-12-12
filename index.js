@@ -243,7 +243,7 @@ async function run() {
     // products related api
     app.get("/products", async (req, res) => {
       try {
-        const limit = parseInt(req.query.limit); // ?limit=6
+        const limit = parseInt(req.query.limit);
 
         let cursor = AllproductsCollection.find({});
 
