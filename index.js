@@ -477,20 +477,20 @@ async function run() {
       const result = await orderCollection.insertOne(order);
       res.send(result);
     });
-    // buyer home dashboard show products status
-    app.get("/orders/:id", async (req, res) => {
+    // // buyer home dashboard show products status
+    // app.get("/order/:id", async (req, res) => {
 
-      try {
-        const id = req.params.id;
-        const result = await orderCollection.findOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to delete issue" });
-      }
-    })
+    //   try {
+    //     const id = req.params.id;
+    //     const result = await orderCollection.findOne({
+    //       _id: new ObjectId(id),
+    //     });
+    //     res.send(result);
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.status(500).send({ message: "Failed to delete issue" });
+    //   }
+    // })
     // order get 
     // orders get with optional status filter
     app.get("/orders", async (req, res) => {
@@ -508,6 +508,35 @@ async function run() {
       const orders = await orderCollection.find(query).sort({ createdAt: -1 }).toArray();
       res.send(orders);
     });
+    // // manager progile stasus show
+    // app.get("/manager/stats/:email", async (req, res) => {
+    //   const email = req.params.email;
+
+    //   // Manager er sob order
+    //   const orders = await orderCollection.find({
+    //     managerEmail: email
+    //   }).toArray();
+
+    //   const totalOrders = orders.length;
+
+    //   // Delivered = trackingLog er last step Delivered
+    //   const delivered = orders.filter(order => {
+    //     if (!order.trackingLog || order.trackingLog.length === 0) return false;
+    //     return order.trackingLog.at(-1).step === "Delivered";
+    //   }).length;
+
+    //   // Pending = orderStatus pending
+    //   const pending = orders.filter(
+    //     order => order.orderStatus === "pending"
+    //   ).length;
+
+    //   res.send({
+    //     totalOrders,
+    //     delivered,
+    //     pending
+    //   });
+    // });
+
 
 
 
