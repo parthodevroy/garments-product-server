@@ -102,6 +102,18 @@ async function run() {
       }
       next()
     }
+    // manager api secure
+    const veryfyManager = async (req, res, next) => {
+      const email = req.decoded_email
+      const query = { email }
+      const user = await userCollection.findOne(query)
+      if (!user || user.role != "Manager") {
+        return res.status(403).send({ message: "forbiden access" });
+
+
+      }
+      next()
+    }
     // rider secure data use valid token then access
     // const veryfyRider=async(req,res,next)=>{
     //   const email=req.decoded_email
@@ -146,12 +158,12 @@ async function run() {
         };
 
       }
-      const cursor = userCollection.find(query).sort({ createdAt: -1 }).limit(4)
+      const cursor = userCollection.find(query).sort({ createdAt: -1 }).limit(10)
       const result = await cursor.toArray()
       res.send(result)
     })
     //user suspend reason load api navber
-    app.get("/users/:email", async (req, res) => {
+    app.get("/users/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await userCollection.findOne({ email });
       res.send(result);
@@ -159,7 +171,7 @@ async function run() {
 
 
     // get user base his role by this website 
-    app.get("/user/:email/role", verifyToken, async (req, res) => {
+    app.get("/user/:email/role", async (req, res) => {
       const email = req.params.email
       const query = { email }
       const user = await userCollection.findOne(query)
@@ -183,9 +195,10 @@ async function run() {
       const userData = await userCollection.insertOne(users)
       res.send(userData)
     })
-    // patch /updated user role user to admin and admin to simple user
 
-    //    
+
+    // patch /updated user role user to admin and admin to simple user (admin)
+ 
     app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
       const id = req.params.id;
       const { status, suspendReason } = req.body;
@@ -208,37 +221,6 @@ async function run() {
     });
 
 
-    //     app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
-    //   const id = req.params.id;
-    //   const { status, suspendReason,role } = req.body;
-
-    //   const query = { _id: new ObjectId(id) };
-    //   const updateDoc = {
-    //     $set: {
-    //       status,
-    //       suspendReason: suspendReason || ""  
-    //     }
-    //   };
-
-    //   const result = await userCollection.updateOne(query, updateDoc);
-    //   res.send(result);
-    // });
-
-
-    // app.patch("/user/:id", verifyToken, veryfyAdmin, async (req, res) => {
-    //   const id = req.params.id;
-    //   const statusInfo = req.body;
-
-    //   const query = { _id: new ObjectId(id) };
-    //   const updateDocs = {
-    //     $set: {
-    //       status: statusInfo.status
-    //     }
-    //   };
-
-    //   const result = await userCollection.updateOne(query, updateDocs);
-    //   res.send(result);
-    // });
 
     // products related api
     app.get("/products", async (req, res) => {
@@ -284,7 +266,7 @@ async function run() {
       const result = await AllproductsCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-    // show on home page permissin admin
+    // show on home page permissin (admin)
     app.patch("/products/:id/show-on-home", async (req, res) => {
       const id = req.params.id;
       const { value } = req.body; // "permit" or "no"
@@ -300,7 +282,7 @@ async function run() {
 
 
     // when manager created product post mongo db  
-    app.post("/products", async (req, res) => {
+    app.post("/products",verifyToken, async (req, res) => {
       try {
         const product = {
           ...req.body,     // frontend already sends show_on_home
@@ -316,17 +298,9 @@ async function run() {
     });
 
 
-    // app.post("/products", async (req, res) => {
-    //   try {
-    //     const product = req.body;
-    //     const result = await AllproductsCollection.insertOne(product);
-    //     res.send(result);
-    //   } catch (error) {
-    //     res.status(500).send({ message: "Failed to add product" });
-    //   }
-    // });
     // get manager created product data by email
-    app.get("/products/by-manager/:email", async (req, res) => {
+
+    app.get("/products/by-manager/:email",verifyToken,veryfyManager, async (req, res) => {
       try {
         const email = req.params.email;
         const result = await AllproductsCollection.find({ createdBy: email }).toArray();
@@ -336,38 +310,18 @@ async function run() {
       }
     });
     // products delete by manager 
-    app.delete("/products/:id", async (req, res) => {
+    app.delete("/products/:id",verifyToken,veryfyManager, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
 
       const result = await AllproductsCollection.deleteOne(query);
       res.send(result);
     });
-    // if manager want he can update his products information
-    // app.put("/products/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const body = req.body;
-
-    //   const filter = { _id: new ObjectId(id) };
-
-    //   const updatedDoc = {
-    //     $set: {
-    //       product_name: body.product_name,
-    //       product_category: body.product_category,
-    //       product_description: body.product_description,
-    //       price_usd: body.price_usd,
-    //       available_quantity: body.available_quantity,
-    //       minimum_order: body.minimum_order,
-    //       demo_video: body.demo_video,
-    //     }
-    //   };
-
-    //   const result = await AllproductsCollection.updateOne(filter, updatedDoc);
-    //   res.send(result);
-    // });
+   
 
 
     // details products
+
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
       try {
@@ -382,73 +336,10 @@ async function run() {
     });
 
 
-    // rider collection relatead api (only admnin can see)
-
-    // rider register/form filap zap shoft would like took part rider in zapshift
-
-    // app.post("/rider", async (req, res) => {
-    //   const rider = req.body
-    //   rider.status = "pending";
-    //   rider.createdAt = new Date()
-
-    //   const userData = await riderCollection.insertOne(rider)
-    //   res.send(userData)
-    // })
-    // // register people  get api those people
-    // //  want feile like rider and the alredy registed and subn=mit rider frome
-    // app.get("/rider", async (req, res) => {
-    //   const { status, district, workStatus } = req.query
-    //   const query = {};
-
-    //   if (status) {
-    //     query.status = status;
-    //   }
-    //   if (district) {
-    //     query.District = district
-
-    //   }
-    //   if (workStatus) {
-    //     query.workStatus = workStatus
-
-    //   }
-
-    //   const result = await riderCollection.find(query).toArray();
-    //   res.send(result);
-    // });
-    // //  rider status updaated 
-    // app.patch("/rider/:id", verifyToken, veryfyAdmin, async (req, res) => {
-    //   try {
-    //     const status = req.body.status
-    //     const id = req.params.id;
-    //     const query = { _id: new ObjectId(id) }
-
-    //     const updateDocs = {
-    //       $set: {
-    //         status: status,
-    //         workStatus: "available"
-    //       }
-    //     }
-    //     const result = await riderCollection.updateOne(query, updateDocs)
-    //     if (status === "approved") {
-    //       const email = req.body.email
-    //       const userQuary = { email }
-    //       const updateUser = {
-    //         $set: {
-    //           role: "rider"
-    //         }
-    //       }
-    //       const userResult = await userCollection.updateOne(userQuary, updateUser)
-
-    //     }
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to update  rider" });
-    //   }
-    // });
 
     //  trakings id realated api 
-    app.get("/tracking/:trackingId", async (req, res) => {
+
+    app.get("/tracking/:trackingId",verifyToken, async (req, res) => {
       const trackingId = req.params.trackingId;
 
       const query = { trackingId };
@@ -463,11 +354,8 @@ async function run() {
 
 
 
-    // post pacel **note:jdi traking id realated kno problem hy tahole ai khane r payment api te hbe 
-    // karon taking id genared double hye jete pare parcel created r parcel er payment hower por
-
-    // new website 
-    app.post("/order", async (req, res) => {
+    // buyer/user order bokking 
+    app.post("/order",verifyToken, async (req, res) => {
       const order = req.body;
       order.createdAt = new Date();
       order.trackingId = generateTrackingId();
@@ -477,147 +365,9 @@ async function run() {
       const result = await orderCollection.insertOne(order);
       res.send(result);
     });
-    // // buyer home dashboard show products status
-    // app.get("/order/:id", async (req, res) => {
 
-    //   try {
-    //     const id = req.params.id;
-    //     const result = await orderCollection.findOne({
-    //       _id: new ObjectId(id),
-    //     });
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to delete issue" });
-    //   }
-    // })
-    // order get 
-    // orders get with optional status filter
-    app.get("/orders", async (req, res) => {
-      const { email, status } = req.query;
-      const query = {};
-
-      if (email) query.customerEmail = email;
-
-      // multiple status support: pending, order_paid, accepted
-      if (status) {
-        const statusArray = status.split(",");
-        query.orderStatus = { $in: statusArray };
-      }
-
-      const orders = await orderCollection.find(query).sort({ createdAt: -1 }).toArray();
-      res.send(orders);
-    });
-    // // manager progile stasus show
-    // app.get("/manager/stats/:email", async (req, res) => {
-    //   const email = req.params.email;
-
-    //   // Manager er sob order
-    //   const orders = await orderCollection.find({
-    //     managerEmail: email
-    //   }).toArray();
-
-    //   const totalOrders = orders.length;
-
-    //   // Delivered = trackingLog er last step Delivered
-    //   const delivered = orders.filter(order => {
-    //     if (!order.trackingLog || order.trackingLog.length === 0) return false;
-    //     return order.trackingLog.at(-1).step === "Delivered";
-    //   }).length;
-
-    //   // Pending = orderStatus pending
-    //   const pending = orders.filter(
-    //     order => order.orderStatus === "pending"
-    //   ).length;
-
-    //   res.send({
-    //     totalOrders,
-    //     delivered,
-    //     pending
-    //   });
-    // });
-
-
-
-
-    // get  payment chekout parcel details
-    app.get("/orders/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await orderCollection.findOne({ _id: new ObjectId(id) });
-      res.send(result);
-    });
-    // get manager product order information
-    // server.js
-    // get manager product order information (excluding delivered)
-    app.get("/orders/by-manager/:email", async (req, res) => {
-      try {
-        const managerEmail = req.params.email;
-
-        const orders = await orderCollection.find({
-          manageremail: managerEmail,
-          orderStatus: { $ne: "Delivered" }
-        }).toArray();
-
-        res.send(orders);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to fetch orders" });
-      }
-    });
-
-    // get all order admin can see all order 
-
-    // app.get("/orders/admin", async (req, res) => {
-    //   try {
-    //     const orders = await orderCollection.find().toArray();
-    //     res.send(orders);
-    //   } catch (error) {
-    //     console.error(error);
-    //     res.status(500).send({ message: "Failed to fetch orders" });
-    //   }
-    // });
-    // Get only completed/delivered orders for a manager
-    app.get("/orders/completed/by-manager/:email", async (req, res) => {
-      try {
-        const managerEmail = req.params.email;
-
-        const orders = await orderCollection
-          .find({
-            manageremail: managerEmail,
-            "trackingLog.step": "Delivered"
-          })
-          .toArray();
-
-        res.send(orders);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to fetch completed orders" });
-      }
-    });
-    // get only pending order
-    app.get("/orders/pending/by-manager/:email", async (req, res) => {
-      try {
-        const managerEmail = req.params.email;
-
-        const orders = await orderCollection
-          .find({
-            manageremail: managerEmail, // manager এর email
-            orderStatus: "pending",     // শুধুমাত্র pending orders
-            // Optional: যদি শুধুমাত্র buyer এর product filter করতে চাই
-            productName: { $exists: true, $ne: "" }
-          })
-          .toArray();
-
-        res.send(orders);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to fetch pending orders" });
-      }
-    });
-
-
-    // order by buyer email
-    app.get("/orders/by-buyer/:email", async (req, res) => {
+    // buyer bokking all order get with email
+    app.get("/orders/by-buyer/:email",verifyToken, async (req, res) => {
       try {
         const email = req.params.email;
         const result = await orderCollection.find({ customerEmail: email }).toArray();
@@ -627,7 +377,7 @@ async function run() {
       }
     });
     // if buyer want to cancel his order 
-    app.delete("/orders/by-buyer/:id", async (req, res) => {
+    app.delete("/orders/by-buyer/:id",verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const order = await orderCollection.findOne({ _id: new ObjectId(id) });
@@ -664,8 +414,99 @@ async function run() {
 
 
 
+   
+    //buyer bokking orders get with optional status filter (admin)
+
+    app.get("/orders",verifyToken, async (req, res) => {
+      const { email, status } = req.query;
+      const query = {};
+
+      if (email) query.customerEmail = email;
+
+      if (status) {
+        const statusArray = status.split(",");
+        query.orderStatus = { $in: statusArray };
+      }
+
+      const orders = await orderCollection.find(query).sort({ createdAt: -1 }).toArray();
+      res.send(orders);
+    });
+    
+
+
+
+
+    // get  payment chekout parcel details
+
+    app.get("/orders/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await orderCollection.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+    // get manager product order information
+    // server.js
+    // get manager product order information (excluding delivered)
+    app.get("/orders/by-manager/:email",verifyToken,veryfyManager, async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
+
+        const orders = await orderCollection.find({
+          manageremail: managerEmail,
+          orderStatus: { $ne: "Delivered" }
+        }).toArray();
+
+        res.send(orders);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch orders" });
+      }
+    });
+
+  
+    // Get only completed/delivered orders for a manager
+    app.get("/orders/completed/by-manager/:email",verifyToken,veryfyManager, async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
+
+        const orders = await orderCollection
+          .find({
+            manageremail: managerEmail,
+            "trackingLog.step": "Delivered"
+          })
+          .toArray();
+
+        res.send(orders);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch completed orders" });
+      }
+    });
+    // get only pending order
+    app.get("/orders/pending/by-manager/:email",verifyToken,veryfyManager, async (req, res) => {
+      try {
+        const managerEmail = req.params.email;
+
+        const orders = await orderCollection
+          .find({
+            manageremail: managerEmail, 
+            orderStatus: "pending",    
+            productName: { $exists: true, $ne: "" }
+          })
+          .toArray();
+
+        res.send(orders);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch pending orders" });
+      }
+    });
+
+
+    // order by buyer email
+
     // Accept/Reject order by manager
-    app.patch("/orders/:id/status", async (req, res) => {
+
+    app.patch("/orders/:id/status",verifyToken,veryfyManager, async (req, res) => {
       try {
         const id = req.params.id;
         const { status } = req.body; // accepted / rejected
@@ -692,12 +533,11 @@ async function run() {
       }
     });
 
-
-    app.patch("/orders/:id/tracking", async (req, res) => {
+// products order stastus chage  like (cutting,swining) manager
+    app.patch("/orders/:id/tracking",verifyToken,veryfyManager, async (req, res) => {
       try {
         const id = req.params.id;
-        const { step, note, location, datetime } = req.body; // extra fields optional
-
+        const { step, note, location, datetime } = req.body; 
         const order = await orderCollection.findOne({ _id: new ObjectId(id) });
         if (!order) return res.status(404).send({ message: "Order not found" });
 
@@ -713,7 +553,6 @@ async function run() {
 
         const updateDoc = { $push: { trackingLog: newTracking } };
 
-        // If Delivered, also update orderStatus
         if (step === "Delivered") {
           updateDoc.$set = { orderStatus: "Delivered" };
         }
@@ -730,8 +569,9 @@ async function run() {
         res.status(500).send({ message: "Failed to update tracking" });
       }
     });
-    // Get approved orders for manager
-    app.get("/orders/approved/by-manager/:email", async (req, res) => {
+    // Get approved orders  (manager)
+
+    app.get("/orders/approved/by-manager/:email", verifyToken,veryfyManager,async (req, res) => {
       try {
         const managerEmail = req.params.email;
 
@@ -750,8 +590,9 @@ async function run() {
 
 
     // aggrigate papeline (advance topic)
+
     // get admin   dashboard all products status
-    app.get("/orders/delivery-status/status", async (req, res) => {
+    app.get("/orders/delivery-status/status",verifyToken, async (req, res) => {
       const papeline = [
         {
           $group: {
@@ -767,74 +608,9 @@ async function run() {
 
 
 
-    // app.get("/parcels", async (req, res) => {
-    //   try {
-    //     const query = {};
-    //     const { email, deliveryStatus, riderEmail } = req.query;
-
-    //     if (email) query.EmailAddress = email; // sender email
-    //     if (riderEmail) query.riderEmail = riderEmail; // rider only assigned
-    //     if (deliveryStatus) {
-    //       if (deliveryStatus !== "parcel_deliverd") {
-    //         query.deliveryStatus = { $nin: ["parcel_deliverd"] };
-    //       } else {
-    //         query.deliveryStatus = deliveryStatus;
-    //       }
-    //     }
-
-    //     const options = { sort: { createdAt: -1 } };
-    //     const result = await ParcelsCollection.find(query, options).toArray();
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to fetch parcels" });
-    //   }
-    // });
-
-
-    // // again patch parcel when the rider confirm the order (accepeted/reject) 
-    // app.patch("/parcels/:id/status", async (req, res) => {
-    //   const { deliveryStatus, riderId, trackingId } = req.body
-    //   const id = req.params.id
-    //   const query = { _id: new ObjectId(id) }
-    //   const UpdatedDocs = {
-    //     $set: {
-    //       deliveryStatus: deliveryStatus
-    //     }
-    //   }
-    //   if (deliveryStatus === 'parcel_deliverd') {
-    //     // and update the same api hit rider status
-    //     const riderQuery = { _id: new ObjectId(riderId) }
-    //     const riderUpdatedDocs = {
-    //       $set: {
-    //         workStatus: "available"
-
-    //       }
-    //     }
-    //     const riderResult = await riderCollection.updateOne(riderQuery, riderUpdatedDocs)
-    //     res.send(riderResult)
-
-    //   }
-    //   const result = await ParcelsCollection.updateOne(query, UpdatedDocs)
-    //   TrakingLog(trackingId, deliveryStatus)
-    //   res.send(result)
-    // })
-    // // delete  parcel
-    // app.delete("/parcels/:id", async (req, res) => {
-    //   try {
-    //     const id = req.params.id;
-    //     const result = await ParcelsCollection.deleteOne({
-    //       _id: new ObjectId(id),
-    //     });
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to delete issue" });
-    //   }
-    // });
 
     //  payment chekout sesssion
-    app.post('/create-checkout-session', async (req, res) => {
+    app.post('/create-checkout-session',verifyToken, async (req, res) => {
 
 
       const paymentInfo = req.body;
@@ -856,8 +632,8 @@ async function run() {
           },
         ],
         metadata: {
-          orderId: paymentInfo.orderId,
-          productName: paymentInfo.productName
+          productId:paymentInfo.productId,
+          productName:paymentInfo.productName
         },
         customer_email: paymentInfo.buyerEmail, // <-- correct key
         mode: 'payment',
@@ -879,13 +655,13 @@ async function run() {
       const exists = await paymentHistory.findOne({ transactionId });
       if (exists) return res.send({ verified: true, message: "Payment already recorded", trackingId: exists.trackingId });
 
-      if (session.payment_status === 'paid' || session.metadata?.orderId) {
-        const orderId = session.metadata.orderId;
-        const currentOrder = await orderCollection.findOne({ _id: new ObjectId(orderId) });
+      if (session.payment_status === 'paid' || session.metadata?.productId) {
+        const productId = session.metadata.productId;
+        const currentOrder = await orderCollection.findOne({ _id: new ObjectId(productId) });
         const trackingId = currentOrder.trackingId;
         TrakingLog(trackingId, 'order_paid');
 
-        await orderCollection.updateOne({ _id: new ObjectId(orderId) }, {
+        await orderCollection.updateOne({ _id: new ObjectId(productId) }, {
           $set: {
             paymentStatus: 'paid',
             // orderStatus: 'order_paid',
@@ -897,7 +673,7 @@ async function run() {
           amount: session.amount_total / 100,
           currency: session.currency,
           customerEmail: session.customer_details?.email,
-          orderId,
+          productId,
           productName: session.metadata.productName,
           trackingId,
           transactionId,
