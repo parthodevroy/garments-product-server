@@ -77,8 +77,8 @@ function generateTrackingId() {
 
 async function run() {
   try {
-    await client.connect();
-    console.log(" Connected to MongoDB");
+    // await client.connect();
+    // console.log(" Connected to MongoDB");
 
     const db = client.db("garments-management");
     const userCollection = db.collection("users");
