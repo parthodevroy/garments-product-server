@@ -95,7 +95,7 @@ async function run() {
       const email = req.decoded_email
       const query = { email }
       const user = await userCollection.findOne(query)
-      if (!user || user.role != "admin") {
+      if (!user || user.role != "Admin") {
         return res.status(403).send({ message: "forbiden access" });
 
 
@@ -114,18 +114,7 @@ async function run() {
       }
       next()
     }
-    // rider secure data use valid token then access
-    // const veryfyRider=async(req,res,next)=>{
-    //   const email=req.decoded_email
-    //   const query={email}
-    //   const user=await userCollection.findOne(query)
-    //   if (!user|| user.role!="rider") {
-    //     return res.status(403).send({message:"forbiden access"});
-
-
-    //   }
-    //   next()
-    // }
+   
     const TrakingLog = async (trackingId, status) => {
       const log = {
         trackingId,
@@ -213,7 +202,7 @@ async function run() {
 
       const result = await userCollection.updateOne(query, updateDoc);
 
-      // CUSTOM RESPONSE: React খুব easily বুঝবে
+      
       res.send({
         modified: result.modifiedCount > 0,
         matched: result.matchedCount
@@ -222,64 +211,39 @@ async function run() {
 
 
 
-    // products related api
-    // app.get("/products", async (req, res) => {
-    //   try {
-    //     const limit = parseInt(req.query.limit);
+    // products api with search + home filter
+app.get("/products", async (req, res) => {
+  try {
+    const { search, limit, home } = req.query;
 
-    //     let cursor = AllproductsCollection.find({});
+    let query = {};
 
-    //     if (limit) {
-    //       cursor = cursor.limit(limit);
-    //     }
+   
+    if (search && search.trim() !== "") {
+      query.$or = [
+        { product_name: { $regex: search, $options: "i" } },
+        { product_category: { $regex: search, $options: "i" } },
+      ];
+    }
 
-    //     const result = await cursor.toArray();
-    //     res.send(result);
+   
+    if (home === "true") {
+      query.show_on_home = "permit";
+    }
 
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Failed to load products" });
-    //   }
-    // });
-    // products related api with search
-    app.get("/products", async (req, res) => {
-      try {
-        const { search, limit } = req.query;
+    let cursor = AllproductsCollection.find(query);
 
-        let query = {};
+    if (limit) {
+      cursor = cursor.limit(parseInt(limit));
+    }
 
-        if (search && search.trim() !== "") {
-          query = {
-            $or: [
-              {
-                product_name: {
-                  $regex: `^${search}`,
-                  $options: "i",
-                },
-              },
-              {
-                product_category: {
-                  $regex: `^${search}`,
-                  $options: "i",
-                },
-              },
-            ],
-          };
-        }
+    const result = await cursor.toArray();
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Failed to load products" });
+  }
+});
 
-        let cursor = AllproductsCollection.find(query);
-
-       
-        if (limit) {
-          cursor = cursor.limit(parseInt(limit));
-        }
-
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to load products" });
-      }
-    });
 
 
     // update products information from admin
@@ -340,7 +304,7 @@ async function run() {
 
     // get manager created product data by email
 
-    app.get("/products/by-manager/:email", verifyToken, veryfyManager, async (req, res) => {
+    app.get("/products/by-manager/:email", async (req, res) => {
       try {
         const email = req.params.email;
         const result = await AllproductsCollection.find({ createdBy: email }).toArray();
@@ -350,7 +314,7 @@ async function run() {
       }
     });
     // products delete by manager 
-    app.delete("/products/:id", verifyToken, veryfyManager, async (req, res) => {
+    app.delete("/products/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
 
@@ -457,7 +421,7 @@ async function run() {
 
     //buyer bokking orders get with optional status filter (admin)
 
-    app.get("/orders", verifyToken, async (req, res) => {
+    app.get("/orders", async (req, res) => {
       const { email, status } = req.query;
       const query = {};
 
@@ -510,7 +474,7 @@ async function run() {
 
         const orders = await orderCollection
           .find({
-            manageremail: managerEmail,
+            managerEmail: managerEmail,
             "trackingLog.step": "Delivered"
           })
           .toArray();
@@ -522,13 +486,13 @@ async function run() {
       }
     });
     // get only pending order
-    app.get("/orders/pending/by-manager/:email", verifyToken, veryfyManager, async (req, res) => {
+    app.get("/orders/pending/by-manager/:email", async (req, res) => {
       try {
         const managerEmail = req.params.email;
 
         const orders = await orderCollection
           .find({
-            manageremail: managerEmail,
+            managerEmail: managerEmail,
             orderStatus: "pending",
             productName: { $exists: true, $ne: "" }
           })
@@ -552,12 +516,12 @@ async function run() {
         const { status } = req.body; // accepted / rejected
         const query = { _id: new ObjectId(id) };
 
-        // 1️⃣ Update order status
+        // 1 Update order status
         const updateDoc = { $set: { orderStatus: status } };
         const result = await orderCollection.updateOne(query, updateDoc);
 
         if (result.modifiedCount > 0) {
-          // 2️⃣ Tracking log e step add kora
+          // 2 Tracking log e step add kora
           const order = await orderCollection.findOne({ _id: new ObjectId(id) });
           if (order?.trackingId) {
             await TrakingLog(order.trackingId, `Order ${status}`);
@@ -611,12 +575,12 @@ async function run() {
     });
     // Get approved orders  (manager)
 
-    app.get("/orders/approved/by-manager/:email", verifyToken, veryfyManager, async (req, res) => {
+    app.get("/orders/approved/by-manager/:email", verifyToken, async (req, res) => {
       try {
         const managerEmail = req.params.email;
 
         const orders = await orderCollection.find({
-          manageremail: managerEmail,
+          managerEmail: managerEmail,
           orderStatus: "accepted"
         }).sort({ createdAt: -1 }).toArray();
 
@@ -650,7 +614,7 @@ async function run() {
 
 
     //  payment chekout sesssion
-    app.post('/create-checkout-session', verifyToken, async (req, res) => {
+    app.post('/create-checkout-session', async (req, res) => {
 
 
       const paymentInfo = req.body;
@@ -675,7 +639,7 @@ async function run() {
           productId: paymentInfo.productId,
           productName: paymentInfo.productName
         },
-        customer_email: paymentInfo.buyerEmail, // <-- correct key
+        customer_email: paymentInfo.buyerEmail, 
         mode: 'payment',
         success_url: `${process.env.SITE_URL}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_URL}/dashboard/payment-cancel?session_id={CHECKOUT_SESSION_ID}`,
